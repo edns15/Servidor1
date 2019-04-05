@@ -146,8 +146,39 @@ public class Cliente {
 
 					message = br.readLine();
 					System.out.println("Message received from the server : " +message);
+					
+					byte[] cadena = new byte[128];
+					String cadena2 = DatatypeConverter.printHexBinary(cadena);
+					
+					sendMessage = cadena2;
+					
+					escritor.println(sendMessage);
+					System.out.println("Message sent to the server : "+sendMessage);   
 
-
+					message = br.readLine();
+					System.out.println("Message received from the server : " +message);
+					
+					String datos1 = "1;41 24.2028,2 10.4418";
+					String datos2 = "1;41 24.2028,2 10.4418";
+					
+					sendMessage = "OK";
+					
+					escritor.println(sendMessage);
+					System.out.println("Message sent to the server : "+sendMessage);   
+					
+					sendMessage = datos1;
+					
+					escritor.println(sendMessage);
+					System.out.println("Message sent to the server : "+sendMessage);   
+					
+					sendMessage = datos2;
+					
+					escritor.println(sendMessage);
+					System.out.println("Message sent to the server : "+sendMessage);   
+					
+					message = br.readLine();
+					System.out.println("Message received from the server : " +message);
+					
 				}
 			}
 
