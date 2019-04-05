@@ -6,9 +6,5 @@
 	<classpathentry kind="lib" path="bcpkix-jdk15on-161.jar"/>
 	<classpathentry kind="lib" path="Servidorss.jar"/>
 	<classpathentry kind="lib" path="Servidorcs.jar"/>
-	<classpathentry kind="lib" path="C:/Users/nicol/Documents/Uniandes/Quinto semestre/Infracomp/Caso 2/caso2/bcpkix-jdk15on-161.jar"/>
-	<classpathentry kind="lib" path="C:/Users/nicol/Documents/Uniandes/Quinto semestre/Infracomp/Caso 2/caso2/bcprov-jdk15on-161.jar"/>
-	<classpathentry kind="lib" path="C:/Users/nicol/Documents/Uniandes/Quinto semestre/Infracomp/Caso 2/caso2/Servidorcs.jar"/>
-	<classpathentry kind="lib" path="C:/Users/nicol/Documents/Uniandes/Quinto semestre/Infracomp/Caso 2/caso2/Servidorss.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
