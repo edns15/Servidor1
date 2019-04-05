@@ -2,6 +2,7 @@ package srcProyecto;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -11,19 +12,27 @@ import java.io.PrintWriter;
 import java.math.BigInteger;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.security.InvalidKeyException;
 import java.security.Key;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
 import java.security.Provider;
+import java.security.PublicKey;
 import java.security.Security;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.Calendar;
 import java.util.Date;
 
 import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
+import javax.crypto.Mac;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 import javax.xml.bind.DatatypeConverter;
 
 import org.bouncycastle.asn1.x500.X500Name;
@@ -40,7 +49,7 @@ public class ClienteCS {
 	
 	static Socket s;
 
-	public final static String ALGORTIMO1 = "Blowfish";
+	public final static String ALGORITMO1 = "Blowfish";
 
 	public final static String ALGORITMO2 = "RSA";
 
@@ -54,18 +63,14 @@ public class ClienteCS {
 			KeyPairGenerator generadorLlaves = KeyPairGenerator.getInstance(ALGORITMO2);
 			generadorLlaves.initialize(1024);
 			KeyPair keyPair = generadorLlaves.generateKeyPair();
-			//			PublicKey publica = keyPair.getPublic();
-			//			PrivateKey privada = keyPair.getPrivate();
-
-			//			SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy");
-			//			Date notBefore = sdf.parse("01/04/2019");
-			//			Date notAfter = sdf.parse("21/12/2019");
-			//			
-
-			//			Date notBefore = new Date();
-			//			Date notAfter = new Date(notBefore.getTime() + 15 * 86400000l);
-			//			
-			//			SubjectPublicKeyInfo infoPublica = SubjectPublicKeyInfo.getInstance(publica.getEncoded());			
+			
+			KeyGenerator keygen = KeyGenerator.getInstance(ALGORITMO1);
+			keygen.init(128);
+			SecretKey secretKey = keygen.generateKey();
+			
+			PublicKey llavePublica = keyPair.getPublic();
+			PrivateKey llavePrivada = keyPair.getPrivate();
+			
 			s = new Socket("localhost", 6790);
 			PrintWriter escritor = new PrintWriter(s.getOutputStream(), true);
 
@@ -93,7 +98,7 @@ public class ClienteCS {
 			{
 				mensaje = "ALGORITMOS";	
 
-				sendMessage = mensaje + ":" + ALGORTIMO1 + ":" + ALGORITMO2 + ":" + ALGORITMO3 + "\n";
+				sendMessage = mensaje + ":" + ALGORITMO1 + ":" + ALGORITMO2 + ":" + ALGORITMO3 + "\n";
 
 				bw.write(sendMessage);
 				bw.flush();
@@ -122,12 +127,26 @@ public class ClienteCS {
 					System.out.println("Message sent to the server : "+sendMessage);   
 
 					message = br.readLine();
+					String certificadoS = message;
 					System.out.println("Message received from the server : " +message);
 					
-					byte[] cadena = new byte[128];
-					String cadena2 = DatatypeConverter.printHexBinary(cadena);
+					byte[] certificadoP = DatatypeConverter.parseHexBinary(certificadoS);
 					
-					sendMessage = cadena2;
+					CertificateFactory certFactory = CertificateFactory.getInstance("X.509");
+					
+					X509Certificate certificadoF = (X509Certificate)certFactory.generateCertificate(new ByteArrayInputStream(certificadoP));
+					
+					PublicKey llavePs = certificadoF.getPublicKey();
+					
+					byte[] sK = secretKey.getEncoded();
+					
+					String textoDefinitivo = DatatypeConverter.printHexBinary(sK);
+					
+					byte[] cifrado = cifrar(llavePs, textoDefinitivo, ALGORITMO2);
+					
+					String cadena3 = DatatypeConverter.printHexBinary(cifrado);
+					
+					sendMessage = cadena3;
 					
 					escritor.println(sendMessage);
 					System.out.println("Message sent to the server : "+sendMessage);   
@@ -136,19 +155,37 @@ public class ClienteCS {
 					System.out.println("Message received from the server : " +message);
 					
 					String datos1 = "1;41 24.2028,2 10.4418";
-					String datos2 = "1;41 24.2028,2 10.4418";
 					
 					sendMessage = "OK";
 					
 					escritor.println(sendMessage);
-					System.out.println("Message sent to the server : "+sendMessage);   
+					System.out.println("Message sent to the server : "+sendMessage); 
 					
-					sendMessage = datos1;
+					byte[] cifrado2 = cifrar(secretKey, datos1, ALGORITMO1);
+					
+					String cadena4 = DatatypeConverter.printHexBinary(cifrado2);
+					
+					sendMessage = cadena4;
 					
 					escritor.println(sendMessage);
-					System.out.println("Message sent to the server : "+sendMessage);   
+					System.out.println("Message sent to the server : "+sendMessage); 
 					
-					sendMessage = datos2;
+					Mac hmac = Mac.getInstance("HmacSHA256");
+					
+					try {
+						hmac.init(new SecretKeySpec(secretKey.getEncoded(), "HmacSHA256"));
+					} catch (InvalidKeyException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+					
+					byte[] datosH = DatatypeConverter.parseHexBinary(datos1);
+					
+					byte[] resultado = hmac.doFinal(datosH);
+					
+					String cadena5 = DatatypeConverter.printHexBinary(resultado);
+					
+					sendMessage = cadena5;
 					
 					escritor.println(sendMessage);
 					System.out.println("Message sent to the server : "+sendMessage);   
@@ -213,17 +250,22 @@ public class ClienteCS {
 		return certificado;
 	}
 	
-	public static byte[] cifrar(Key key, String texto){
+	public static byte[] cifrar(Key key, String texto, String algoritmo){
 		byte[] textoCifrado;
 		
 		try {
-			Cipher cifrador = Cipher.getInstance(ALGORITMO2);
+			Cipher cifrador = Cipher.getInstance(algoritmo);
+			byte[] textoClaro = texto.getBytes();
+			
+			cifrador.init(Cipher.ENCRYPT_MODE, key);
+			textoCifrado = cifrador.doFinal(textoClaro);
+			
+			return textoCifrado;
 			
 		} catch (Exception e) {
-			// TODO: handle exception
-		}
-		
-		return null;
+			System.out.println("Excpecion: " + e.getMessage());
+			return null;
+		}	
 	}
 
 }
