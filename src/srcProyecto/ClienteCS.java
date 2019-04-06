@@ -46,7 +46,7 @@ import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 
 public class ClienteCS {
-	
+
 	static Socket s;
 
 	public final static String ALGORITMO1 = "Blowfish";
@@ -63,14 +63,14 @@ public class ClienteCS {
 			KeyPairGenerator generadorLlaves = KeyPairGenerator.getInstance(ALGORITMO2);
 			generadorLlaves.initialize(1024);
 			KeyPair keyPair = generadorLlaves.generateKeyPair();
-			
+
 			KeyGenerator keygen = KeyGenerator.getInstance(ALGORITMO1);
 			keygen.init(128);
 			SecretKey secretKey = keygen.generateKey();
-			
+
 			PublicKey llavePublica = keyPair.getPublic();
 			PrivateKey llavePrivada = keyPair.getPrivate();
-			
+
 			s = new Socket("localhost", 6790);
 			PrintWriter escritor = new PrintWriter(s.getOutputStream(), true);
 
@@ -121,78 +121,86 @@ public class ClienteCS {
 					byte[] certificadoEnBytes = cert.getEncoded( );
 					String certificadoEnString = DatatypeConverter.printHexBinary(certificadoEnBytes);
 					sendMessage = certificadoEnString;
-					//					bw.write(sendMessage);
-					//					bw.flush();
 					escritor.println(sendMessage);
 					System.out.println("Message sent to the server : "+sendMessage);   
 
 					message = br.readLine();
 					String certificadoS = message;
 					System.out.println("Message received from the server : " +message);
-					
+
 					byte[] certificadoP = DatatypeConverter.parseHexBinary(certificadoS);
-					
+
 					CertificateFactory certFactory = CertificateFactory.getInstance("X.509");
-					
+
 					X509Certificate certificadoF = (X509Certificate)certFactory.generateCertificate(new ByteArrayInputStream(certificadoP));
-					
+
 					PublicKey llavePs = certificadoF.getPublicKey();
-					
+
 					byte[] sK = secretKey.getEncoded();
-					
+
 					String textoDefinitivo = DatatypeConverter.printHexBinary(sK);
-					
+
 					byte[] cifrado = cifrar(llavePs, textoDefinitivo, ALGORITMO2);
-					
+
 					String cadena3 = DatatypeConverter.printHexBinary(cifrado);
-					
+
 					sendMessage = cadena3;
-					
+
 					escritor.println(sendMessage);
 					System.out.println("Message sent to the server : "+sendMessage);   
 
 					message = br.readLine();
 					System.out.println("Message received from the server : " +message);
-					
+
+					String skServidor = message;
+					byte[] skServidorBytes = DatatypeConverter.parseHexBinary(skServidor);
+					byte[] skDescifrado = descifrar(llavePrivada, ALGORITMO2, skServidorBytes);
+					if(sK==skDescifrado)
+					{
+						System.out.println("Son iguales");
+					}
+
 					String datos1 = "1;41 24.2028,2 10.4418";
-					
+
 					sendMessage = "OK";
-					
+
 					escritor.println(sendMessage);
 					System.out.println("Message sent to the server : "+sendMessage); 
-					
+
 					byte[] cifrado2 = cifrar(secretKey, datos1, ALGORITMO1);
-					
+
 					String cadena4 = DatatypeConverter.printHexBinary(cifrado2);
-					
+
 					sendMessage = cadena4;
-					
+
 					escritor.println(sendMessage);
 					System.out.println("Message sent to the server : "+sendMessage); 
-					
-					Mac hmac = Mac.getInstance("HmacSHA256");
-					
+
+					Mac hmac = Mac.getInstance(ALGORITMO3);
+
 					try {
-						hmac.init(new SecretKeySpec(secretKey.getEncoded(), "HmacSHA256"));
+						hmac.init(secretKey);
+						System.out.println("Se init.secretKey");
 					} catch (InvalidKeyException e) {
 						// TODO Auto-generated catch block
 						e.printStackTrace();
 					}
-					
-					byte[] datosH = DatatypeConverter.parseHexBinary(datos1);
-					
+
+					//					byte[] datosH = DatatypeConverter.parseHexBinary(datos1);
+					byte[] datosH = datos1.getBytes();							
+
 					byte[] resultado = hmac.doFinal(datosH);
-					
+
 					String cadena5 = DatatypeConverter.printHexBinary(resultado);
-					
+
 					sendMessage = cadena5;
-					
+
 					escritor.println(sendMessage);
 					System.out.println("Message sent to the server : "+sendMessage);   
-					
+
 					message = br.readLine();
 					System.out.println("Message received from the server : " +message);
-					
+
 				}
 			}
 
@@ -221,7 +229,7 @@ public class ClienteCS {
 		}
 
 	}
-	
+
 	private static X509Certificate generateCertificate (KeyPair llaves) throws OperatorCreationException, CertificateException
 	{
 		Provider bcp = new BouncyCastleProvider();
@@ -249,23 +257,38 @@ public class ClienteCS {
 		X509Certificate certificado = new JcaX509CertificateConverter().getCertificate(holder);
 		return certificado;
 	}
-	
+
 	public static byte[] cifrar(Key key, String texto, String algoritmo){
 		byte[] textoCifrado;
-		
+
 		try {
 			Cipher cifrador = Cipher.getInstance(algoritmo);
 			byte[] textoClaro = texto.getBytes();
-			
+
 			cifrador.init(Cipher.ENCRYPT_MODE, key);
 			textoCifrado = cifrador.doFinal(textoClaro);
-			
+
 			return textoCifrado;
-			
+
 		} catch (Exception e) {
 			System.out.println("Excpecion: " + e.getMessage());
 			return null;
 		}	
+	}
+
+	public static byte[] descifrar(Key key, String algoritmo, byte[] texto){
+		byte[] textoClaro;
+
+		try {
+			Cipher cifrador = Cipher.getInstance(algoritmo);		
+			cifrador.init(Cipher.DECRYPT_MODE, key);
+			textoClaro = cifrador.doFinal(texto);
+
+		} catch (Exception e) {
+			System.out.println("Excpecion: " + e.getMessage());
+			return null;
+		}	
+		return textoClaro;
 	}
 
 }
