@@ -16,6 +16,7 @@ import java.security.InvalidKeyException;
 import java.security.Key;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.Provider;
@@ -65,7 +66,6 @@ public class ClienteCS {
 			KeyPair keyPair = generadorLlaves.generateKeyPair();
 
 			KeyGenerator keygen = KeyGenerator.getInstance(ALGORITMO1);
-			keygen.init(128);
 			SecretKey secretKey = keygen.generateKey();
 
 			PublicKey llavePublica = keyPair.getPublic();
@@ -73,8 +73,6 @@ public class ClienteCS {
 
 			s = new Socket("localhost", 6790);
 			PrintWriter escritor = new PrintWriter(s.getOutputStream(), true);
-
-			BufferedReader inFromUser = new BufferedReader(new InputStreamReader(System.in));
 
 			OutputStream os = s.getOutputStream();
 			OutputStreamWriter osw = new OutputStreamWriter(os);
@@ -136,11 +134,9 @@ public class ClienteCS {
 
 					PublicKey llavePs = certificadoF.getPublicKey();
 
-					byte[] sK = secretKey.getEncoded();
+					String sK = new String(secretKey.getEncoded());
 
-					String textoDefinitivo = DatatypeConverter.printHexBinary(sK);
-
-					byte[] cifrado = cifrar(llavePs, textoDefinitivo, ALGORITMO2);
+					byte[] cifrado = cifrar(llavePs, sK, ALGORITMO2);
 
 					String cadena3 = DatatypeConverter.printHexBinary(cifrado);
 
@@ -155,11 +151,8 @@ public class ClienteCS {
 					String skServidor = message;
 					byte[] skServidorBytes = DatatypeConverter.parseHexBinary(skServidor);
 					byte[] skDescifrado = descifrar(llavePrivada, ALGORITMO2, skServidorBytes);
-					if(sK==skDescifrado)
-					{
-						System.out.println("Son iguales");
-					}
-
+					SecretKey originalKey = new SecretKeySpec(skDescifrado, 0, skDescifrado.length, ALGORITMO1);
+					
 					String datos1 = "1;41 24.2028,2 10.4418";
 
 					sendMessage = "OK";
@@ -167,7 +160,7 @@ public class ClienteCS {
 					escritor.println(sendMessage);
 					System.out.println("Message sent to the server : "+sendMessage); 
 
-					byte[] cifrado2 = cifrar(secretKey, datos1, ALGORITMO1);
+					byte[] cifrado2 = cifrar(originalKey, datos1, ALGORITMO1);
 
 					String cadena4 = DatatypeConverter.printHexBinary(cifrado2);
 
@@ -176,22 +169,22 @@ public class ClienteCS {
 					escritor.println(sendMessage);
 					System.out.println("Message sent to the server : "+sendMessage); 
 
-					Mac hmac = Mac.getInstance(ALGORITMO3);
+//					Mac hmac = Mac.getInstance(ALGORITMO3);
+//
+//					try {
+//						hmac.init(secretKey);
+//						System.out.println("Se init.secretKey");
+//					} catch (InvalidKeyException e) {
+//						// TODO Auto-generated catch block
+//						e.printStackTrace();
+//					}
+//
+//					//					byte[] datosH = DatatypeConverter.parseHexBinary(datos1);
+					byte[] datosH = datos1.getBytes();		
+					
+					byte[] hmacFinal = getHmac(ALGORITMO3, originalKey, datosH);
 
-					try {
-						hmac.init(secretKey);
-						System.out.println("Se init.secretKey");
-					} catch (InvalidKeyException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-
-					//					byte[] datosH = DatatypeConverter.parseHexBinary(datos1);
-					byte[] datosH = datos1.getBytes();							
-
-					byte[] resultado = hmac.doFinal(datosH);
-
-					String cadena5 = DatatypeConverter.printHexBinary(resultado);
+					String cadena5 = DatatypeConverter.printHexBinary(hmacFinal);
 
 					sendMessage = cadena5;
 
@@ -271,7 +264,7 @@ public class ClienteCS {
 			return textoCifrado;
 
 		} catch (Exception e) {
-			System.out.println("Excpecion: " + e.getMessage());
+			System.out.println("Excepcion: " + e.getMessage());
 			return null;
 		}	
 	}
@@ -290,5 +283,20 @@ public class ClienteCS {
 		}	
 		return textoClaro;
 	}
+	
+	public static byte[] getHmac(String algoritmo, Key llave, byte[] buffer)
+	{
+		try {
+			Mac mac = Mac.getInstance(algoritmo);
+			mac.init(llave);
+			return mac.doFinal(buffer);
+		}
+		catch (Exception e)
+		{
+			System.out.println(e.getMessage());
+			return null;
+		}
+	}
+			
 
 }
