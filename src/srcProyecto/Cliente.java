@@ -58,38 +58,53 @@ import org.bouncycastle.operator.bc.BcRSAContentSignerBuilder;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.x509.X509V3CertificateGenerator;
 
+/**
+ * Clase que representa la clase Cliente que se comunica con el servidor sin seguridad
+ * Autores: Nicolás Cobos - n.cobos@uniandes.edu.co / Juan Felipe Torres - jf.torresp@uniandes.edu.co
+ */
 public class Cliente {
 
+	/**
+	 * Socket para generar la comunicación con el servidor
+	 */
 	static Socket s;
 
+	/**
+	 * Constante que representa la cadena del algortimo Blowfish
+	 */
 	public final static String ALGORTIMO1 = "Blowfish";
 
+	/**
+	 * Constante que representa la cadena del algortimo RSA
+	 */
 	public final static String ALGORITMO2 = "RSA";
 
+	/**
+	 * Constante que representa la cadena del algortimo HMACSHA256
+	 */
 	public final static String ALGORITMO3 = "HMACSHA256";
 
 
+	/**
+	 * Método main que ejecuta el protocolo de comunicación SIN SEGURIDAD del cliente y recibe las respuestas del Servidor. 
+	 * @param args
+	 */
 	public static void main(String[] args) {
 		// TODO Auto-generated method stub
 
 		try {
 
+			
+			//Generación del par de llaves asiméticas con el algoritmo RSA.
+			
 			KeyPairGenerator generadorLlaves = KeyPairGenerator.getInstance(ALGORITMO2);
 			generadorLlaves.initialize(1024);
 			KeyPair keyPair = generadorLlaves.generateKeyPair();
-			//			PublicKey publica = keyPair.getPublic();
-			//			PrivateKey privada = keyPair.getPrivate();
-
-			//			SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy");
-			//			Date notBefore = sdf.parse("01/04/2019");
-			//			Date notAfter = sdf.parse("21/12/2019");
-			//			
-
-			//			Date notBefore = new Date();
-			//			Date notAfter = new Date(notBefore.getTime() + 15 * 86400000l);
-			//			
-			//			SubjectPublicKeyInfo infoPublica = SubjectPublicKeyInfo.getInstance(publica.getEncoded());			
+			
+			//Creación del socket para la comunicación con el servidor desde el puerto 6790
 			s = new Socket("localhost", 6790);
+			
+			//PrintWriter para el envío de mensajes al servidor
 			PrintWriter escritor = new PrintWriter(s.getOutputStream(), true);
 
 			BufferedReader inFromUser = new BufferedReader(new InputStreamReader(System.in));
@@ -98,6 +113,9 @@ public class Cliente {
 			OutputStreamWriter osw = new OutputStreamWriter(os);
 			BufferedWriter bw = new BufferedWriter(osw);
 
+			//Etapa 1: Seleccionar algoritmos e iniciar sesión
+			
+			// Primer mensaje enviado "HOLA"
 			String mensaje = "HOLA";
 
 			String sendMessage = mensaje + "\n";
@@ -105,30 +123,39 @@ public class Cliente {
 			bw.flush();
 			System.out.println("Message sent to the server : "+sendMessage);
 
-			//Get the return message from the server
+			//Proceso de recibir el mensaje del Servidor
 			InputStream is = s.getInputStream();
 			InputStreamReader isr = new InputStreamReader(is);
 			BufferedReader br = new BufferedReader(isr);
 			String message = br.readLine();
 			System.out.println("Message received from the server : " +message);
 
+			
+			//Recepción de mensaje "OK"
 			if(message.equals("OK"))
 			{
 				mensaje = "ALGORITMOS";	
 
+				//Envío de los algoritmos al servidor
 				sendMessage = mensaje + ":" + ALGORTIMO1 + ":" + ALGORITMO2 + ":" + ALGORITMO3 + "\n";
 
 				bw.write(sendMessage);
 				bw.flush();
 				System.out.println("Message sent to the server : "+sendMessage);
 
+				//Recepción de algoritmos por parte del servidor
 				message = br.readLine();
 				System.out.println("Message received from the server : " +message);
 
+				//Confirmación de algoritmos con mensaje "OK"
 				if(message.equals("OK"))
 				{
 
+					//Etapa 2: Intercambio de certificados
+					
 					X509Certificate cert = null;
+					
+					//Llamado al método que genera el certificado con el par de llaves creadas.
 					try {
 						cert = generateCertificate(keyPair);
 					} catch (OperatorCreationException e) {
@@ -136,54 +163,72 @@ public class Cliente {
 						e.printStackTrace();
 					}
 
+					//Obtención del certificado codificado como arreglo de bytes
 					byte[] certificadoEnBytes = cert.getEncoded( );
+					
+					//Paso del certificado a un String en hexadecimal
 					String certificadoEnString = DatatypeConverter.printHexBinary(certificadoEnBytes);
 					sendMessage = certificadoEnString;
-					//					bw.write(sendMessage);
-					//					bw.flush();
+
+					//Envío del certificado al servidor
 					escritor.println(sendMessage);
 					System.out.println("Message sent to the server : "+sendMessage);   
 
+					//Recepción del certificado del servidor
 					message = br.readLine();
 					System.out.println("Message received from the server : " +message);
 					
+					//Envío de la cadena de 128 bytes
+					
 					byte[] cadena = new byte[128];
+					
+					//Paso de la cadena de 128 bytes a un String en hexadecimal
 					String cadena2 = DatatypeConverter.printHexBinary(cadena);
 					
 					sendMessage = cadena2;
 					
+					//Envío de la cadena
 					escritor.println(sendMessage);
 					System.out.println("Message sent to the server : "+sendMessage);   
 
+					//Recepción de la cadena de 128n bytes del servidor
 					message = br.readLine();
 					System.out.println("Message received from the server : " +message);
 					
+					//Etapa 3: Envío de datos
+					
+					//Creación de la cadena datos con los datos especificados (id, posición)
 					String datos1 = "1;41 24.2028,2 10.4418";
 					String datos2 = "1;41 24.2028,2 10.4418";
 					
+					//Inicia proceso de envío de datos con mensaje "OK"
 					sendMessage = "OK";
 					
 					escritor.println(sendMessage);
 					System.out.println("Message sent to the server : "+sendMessage);   
 					
+					//Envío de los datos
 					sendMessage = datos1;
 					
 					escritor.println(sendMessage);
 					System.out.println("Message sent to the server : "+sendMessage);   
 					
+					//Segundo envío de los datos
 					sendMessage = datos2;
 					
 					escritor.println(sendMessage);
 					System.out.println("Message sent to the server : "+sendMessage);   
 					
+					//Recepción de los mismos datos por parte del servidor
 					message = br.readLine();
 					System.out.println("Message received from the server : " +message);
 					
+					//FIN DE COMUNICACIÓN SIGUIENDO EL PROTOCOLO
+					
 				}
 			}
-
-
-
+			
+			//Se cierra el socket para finalizar la conexión
 			s.close();
 
 		} catch (UnknownHostException e) {
@@ -208,6 +253,13 @@ public class Cliente {
 
 	}
 
+	/**
+	 * Método que genera el certificado de tipo X509Certificate usando la librería de BouncyCastle. Recibe por parámetro el par de llaves asimétricas propias.
+	 * @param llaves Para de llaves asimétricas (pública y privada). != null != "".
+	 * @return X059Certificate Certificado del cliente que se envía al Servidor.
+	 * @throws OperatorCreationException
+	 * @throws CertificateException
+	 */
 	private static X509Certificate generateCertificate (KeyPair llaves) throws OperatorCreationException, CertificateException
 	{
 		Provider bcp = new BouncyCastleProvider();
